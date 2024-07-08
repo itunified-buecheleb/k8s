@@ -9,4 +9,8 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   hostPath:
+<<<<<<< HEAD
     path: /opt/oracle/oradata
+=======
+    path: /u01/app/oracle/oradata
+>>>>>>> refs/remotes/origin/main
