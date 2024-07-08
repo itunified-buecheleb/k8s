@@ -33,6 +33,7 @@ fi
 
 # Apply the YAML files in the specified namespace
  kubectl create secret docker-registry docker-hub-cred \
+  --docker-server=https://index.docker.io/v1/ \
   --docker-username=$(svault --getUsername --name hub_docker_buecheleb) \
   --docker-password=$(svault --getPassword --name hub_docker_buecheleb) -n $NAMESPACE
 
