@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-database
+  labels:
+    app: oracle-database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-database
+  template:
+    metadata:
+      labels:
+        app: oracle-database
+    spec:
+      containers:
+        - name: oracle-database
+          image: itunified/oracle-database-ee
+          ports:
+            - containerPort: 1521
+          volumeMounts:
+            - mountPath: /u01/app/oracle/oradata
+              name: oracle-storage
+      imagePullSecrets:
+        - name: docker-hub-cred
+      volumes:
+        - name: oracle-storage
+          persistentVolumeClaim:
+            claimName: oracle-pvc
