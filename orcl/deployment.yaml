@@ -20,7 +20,7 @@ spec:
           ports:
             - containerPort: 1521
           volumeMounts:
-            - mountPath: /u01/app/oracle/oradata
+            - mountPath: /opt/oracle/oradata
               name: oracle-storage
       imagePullSecrets:
         - name: docker-hub-cred
