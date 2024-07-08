@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: oracle-database
-          image: itunified/oracle-database-ee
+          image: itunified/oracle-database-ee:latest
           ports:
             - containerPort: 1521
           volumeMounts:
