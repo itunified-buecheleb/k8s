@@ -1,0 +1,4 @@
+# ingonre k8s kind config yaml
+coredns-configmap.yaml
+kind-config.yaml
+metallb-config.yaml
