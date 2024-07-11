@@ -3,7 +3,7 @@
 # Set default values
 WORKER_COUNT=2
 FORCE=false
-CLUSTER_NAME="k8s.kind.local"
+CLUSTER_NAME="k8s.local"
 KIND_CONFIG="kind-config.yaml"
 METALLB_CONFIG="metallb-config.yaml"
 CALICO_MANIFEST="https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml"
@@ -55,17 +55,22 @@ nodes:
         hostPort: 2222
       - containerPort: 1521
         hostPort: 1521
+      - containerPort: 31521
+        hostPort: 31521  # Add NodePort mapping for control-plane if needed
       - containerPort: 5500
         hostPort: 5500
 EOF
 
     for ((i=1; i<=WORKER_COUNT; i++)); do
         port=$((2222 + i))
+        nodeport=$((i + 1521))
         cat <<EOF >> $KIND_CONFIG
   - role: worker
     extraPortMappings:
       - containerPort: 22
         hostPort: ${port}
+      - containerPort: 31521
+        hostPort: ${nodeport}
 EOF
     done
 }
