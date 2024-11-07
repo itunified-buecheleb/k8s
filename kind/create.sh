@@ -5,9 +5,10 @@ WORKER_COUNT=2
 FORCE=false
 CLUSTER_NAME="k8s.local"
 KIND_CONFIG="kind-config.yaml"
-METALLB_CONFIG="metallb-config.yaml"
+METALLB_CONFIG_IP_POOL="metallb-config.ip-pool.yaml"
+METALLB_CONFIG_L2ADD="metallb-config.l2advertisement.yaml"
 CALICO_MANIFEST="https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml"
-METALLB_MANIFEST="https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
+METALLB_MANIFEST="https://raw.githubusercontent.com/metallb/metallb/v0.14.8/config/manifests/metallb-native.yaml"
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -47,6 +48,9 @@ networking:
 nodes:
   - role: control-plane
     extraPortMappings:
+      - containerPort: 6443
+        hostPort: 6443
+        protocol: TCP
       - containerPort: 80
         hostPort: 80
       - containerPort: 443
@@ -96,7 +100,6 @@ function select_and_delete_clusters {
 
     selected_ids=$(printf "%s\n" "${cluster_array[@]}" | fzf --ansi --multi --preview='echo {}' --preview-window=down:10%)
 
-
     if [[ -z "$selected_ids" ]]; then
         echo "No clusters selected. Exiting."
         exit 0
@@ -144,32 +147,85 @@ kubectl wait --for=condition=Ready pods --all --namespace=kube-system --timeout=
 echo "Calico installed successfully."
 
 # Install MetalLB
+echo "---------------------------------------------------"
+echo "*********************"
+echo "** Install MetalLB **"
+echo "*********************"
+echo "-- apply manifest"
 kubectl apply -f $METALLB_MANIFEST || error_exit "Failed to apply MetalLB manifest."
 
-# Create MetalLB configuration file
-cat <<EOF > $METALLB_CONFIG
+# Wait until MetalLB pods are running
+while [[ $(kubectl get pods -n metallb-system -o jsonpath="{.items[*].status.containerStatuses[*].ready}" | grep -c "false") -gt 0 ]]; do
+  echo "Waiting for MetalLB pods to be ready..."
+  sleep 5
+done
+
+
+# Generate a random string for the MetalLB secret
+METALLB_SECRET=$(openssl rand -base64 32)
+
+# Create the MetalLB secret
+echo "-- apply secret"
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
+  name: memberlist
   namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      addresses:
-      - 192.168.1.240-192.168.1.250
+stringData:
+  secretkey: "$METALLB_SECRET"
 EOF
 
+# Create MetalLB configuration  IPAddressPool
+echo "-- apply IPAddressPool"
+cat <<EOF > $METALLB_CONFIG_IP_POOL
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: first-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 172.18.0.240-172.18.0.250
+EOF
+
+# Create MetalLB configuration L2Advertisement
+echo "-- apply L2Advertisement"
+cat <<EOF > $METALLB_CONFIG_L2ADD
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: example
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - first-pool
+EOF
+
+
+
 # Apply MetalLB configuration
-kubectl apply -f $METALLB_CONFIG || error_exit "Failed to apply MetalLB config."
+kubectl apply -f $METALLB_CONFIG_IP_POOL || error_exit "Failed to apply MetalLB config IPAddressPool."
+kubectl apply -f $METALLB_CONFIG_L2ADD || error_exit "Failed to apply MetalLB config L2Advertisement."
 
 echo "MetalLB installed and configured successfully."
+echo "---------------------------------------------------"
 
 # Wait for all pods to be ready
 echo "Waiting for all pods to be ready..."
 kubectl wait --for=condition=Ready pods --all --namespace=kube-system --timeout=300s || error_exit "Some pods did not become ready in time."
+
+# Function to verify MetalLB configuration
+function verify_metallb {
+    echo "Verifying MetalLB configuration..."
+    kubectl get configmap config -n metallb-system -o yaml
+    kubectl get pods -n metallb-system
+    kubectl logs -n metallb-system -l app=metallb -c controller
+    kubectl logs -n metallb-system -l app=metallb -c speaker
+    kubectl describe svc foo-bar-service
+}
+
+verify_metallb
 
 echo "Cluster setup completed successfully."
 

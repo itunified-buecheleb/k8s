@@ -12,6 +12,57 @@ Ensure that you have the following dependencies installed on your system:
 - [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation): Kubernetes IN Docker - a tool for running local Kubernetes clusters using Docker container nodes.
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/): The Kubernetes command-line tool.
 - [fzf](https://github.com/junegunn/fzf): A command-line fuzzy finder for interactive cluster selection.
+- [docker-mac-net-connect](https://github.com/chipmk/docker-mac-net-connect)
+- colima
+- MetalLB https://github.com/metallb/metallb/releases
+
+steps install docker,docker-mac-net-connect,colima,kind
+
+## todo
+kube-proxy
+dns (coredns)
+promeheus
+grafana
+
+## docker-mac-net-connect
+### install
+```bash
+# Install via Homebrew
+brew install chipmk/tap/docker-mac-net-connect
+
+# Run the service and register it to launch at boot
+sudo brew services start chipmk/tap/docker-mac-net-connect
+```
+### uninstall
+```bash
+sudo brew services stop chipmk/tap/docker-mac-net-connect
+brew uninstall chipmk/tap/docker-mac-net-connect
+```
+```markdown
+brew uninstall chipmk/tap/docker-mac-net-connect
+
+Uninstalling /opt/homebrew/Cellar/docker-mac-net-connect/v0.1.2... (18 files, 9.5MB)
+Error: Could not remove docker-mac-net-connect keg! Do so manually:
+  sudo rm -rf /opt/homebrew/Cellar/docker-mac-net-connect/v0.1.2
+```
+```bash
+sudo rm -rf /opt/homebrew/Cellar/docker-mac-net-connect/v0.1.2
+```
+
+
+## colima
+### install
+```bash
+brew install colima
+colima start --network-address
+```
+### uninstall
+```bash
+colima stop
+colima delete
+brew uninstall colima
+```
+
 
 ## Usage
 
@@ -75,6 +126,25 @@ The script installs and configures the following components:
 
 ### Setting Up Routing on macOS
 
+#### install colima
+```bash
+brew install colima
+colima start --network-address
+colima ssh -- sudo apt update
+colima ssh -- sudo apt install net-tools
+colima list
+```
+**when no ip address is getting exposed**
+```bash
+colima stop
+sudo rm -rf /etc/sudoers.d/colima /opt/colima
+colima start --network-address
+```
+
+#### setup routing
+Then, we need to set up a route on the Mac to send traffic to the VM.
+
+
 To access the Kubernetes services running in your \`kind\` cluster from your host machine, you need to set up routing:
 
 1. **Find the Docker Network Gateway IP**:
@@ -102,3 +172,14 @@ To access the Kubernetes services running in your \`kind\` cluster from your hos
 ## Note
 
 This script is intended for local development and testing purposes only. It is not recommended for production use.
+
+## docker 
+
+```bash
+sudo vi /etc/docker/daemon.json
+{
+  "iptables": false,
+  "ip-forward": true
+}
+
+```

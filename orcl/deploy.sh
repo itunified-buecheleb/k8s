@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 # Funktion zur Anzeige der Verwendung
 usage() {
@@ -31,29 +32,35 @@ else
   kubectl create namespace "$NAMESPACE"
 fi
 
-# Apply the YAML files in the specified namespace
- kubectl create secret docker-registry docker-hub-cred \
+# Create Docker Hub secret
+kubectl create secret docker-registry docker-hub-cred \
   --docker-server=https://index.docker.io/v1/ \
   --docker-username=$(cd ~/github/itunified-buecheleb/spass/ && node src/main --getUsername --name hub_docker_buecheleb) \
   --docker-password=$(cd ~/github/itunified-buecheleb/spass/ && node src/main --getPassword --name hub_docker_buecheleb) -n $NAMESPACE
 
+# Read Database Password
+PASS=$(cd ~/github/itunified-buecheleb/spass/ && node src/main --getPassword --name kind_k8s_orclcdb_sys ) 
+kubectl create secret generic oracle-rdbms-credentials --namespace $NAMESPACE \
+        --from-literal=ORACLE_PWD="$PASS"
 sleep 5
+#
+# Apply Persistent Volume, Persistent Volume Claim, Deployment, Service und Ingress
+kubectl apply -f ${NAMESPACE}/pv.yaml --namespace="$NAMESPACE"
+kubectl apply -f ${NAMESPACE}/pvc.yaml --namespace="$NAMESPACE"
+kubectl apply -f ${NAMESPACE}/configmap.yaml --namespace="$NAMESPACE"
+kubectl apply -f ${NAMESPACE}/deployment.yaml --namespace="$NAMESPACE"
+kubectl apply -f ${NAMESPACE}/loadbalancer.yaml --namespace="$NAMESPACE"
 
-kubectl apply -f pv.yaml --namespace="$NAMESPACE"
-kubectl apply -f pvc.yaml --namespace="$NAMESPACE"
-kubectl apply -f deployment.yaml --namespace="$NAMESPACE"
-kubectl apply -f service.yaml --namespace="$NAMESPACE"
-
-# Check the status of the Oracle database pod
-#kubectl wait --for=condition=Ready pod -l app=oracle-database -n orcl --timeout=300s
+# Wait for the Oracle database pod to be ready
+echo "Waiting for the Oracle database pod to be running..."
+kubectl wait --for=condition=ready pod -l app=oracle-rdbms-${NAMESPACE} -n $NAMESPACE --timeout=600s
 
 # Verify if the Oracle database pod is ready
 if [ $? -eq 0 ]; then
-    echo "Oracle database pod is ready."
+    echo "Oracle database pod is running."
 else
-    echo "Oracle database pod is not ready. Check the logs for more details."
+    echo "Oracle database pod is not running. Check the logs for more details."
     exit 1
 fi
 
 echo "Deployment abgeschlossen in Namespace $NAMESPACE."
-
