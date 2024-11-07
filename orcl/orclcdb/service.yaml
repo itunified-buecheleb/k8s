@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  labels:
+    app: oracle-rdbms-orclcdb
+spec:
+  ports:
+    - name: listener
+      port: 1521
+      targetPort: oracle-listener
+  selector:
+    app: oracle-rdbms-orclcdb

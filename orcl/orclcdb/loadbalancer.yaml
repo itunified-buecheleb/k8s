@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  labels:
+    app: oracle-rdbms-orclcdb
+spec:
+  type: LoadBalancer
+  ports:
+    - name: listener
+      port: 1521
+      targetPort: 1521
+  selector:
+    app: oracle-rdbms-orclcdb
